@@ -1,0 +1,22 @@
+# Labels applied by paths changed in a PR
+
+docs:
+  - README.md
+  - docs/**/*
+
+ci:
+  - .github/workflows/**/*
+
+test:
+  - tests/**/*
+
+chore:
+  - .editorconfig
+  - .gitattributes
+  - .gitignore
+  - .pre-commit-config.yaml
+  - pyproject.toml
+  - .github/ISSUE_TEMPLATE/**/*
+  - .github/PULL_REQUEST_TEMPLATE/**/*
+  - .github/dependabot.yml
+  - .github/labeler.yml
