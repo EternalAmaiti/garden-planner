@@ -59,6 +59,52 @@ tests/                             # pytest tests
 - **Windows line endings (CRLF) warnings**  
   Harmless. You can `git config --global core.autocrlf true`. Optional `.gitattributes` below.
 
+## Labels
+
+We use a small, predictable label set for triage and automation.
+
+**Type**
+- `feat` — Feature / new functionality  
+- `fix` — Bug fix / correctness  
+- `docs` — Documentation only  
+- `chore` — Tooling / maintenance  
+- `ci` — CI / workflows  
+- `refactor` — Restructure; no behavior change  
+- `test` — Tests only  
+- `perf` — Performance
+
+**Help**
+- `good first issue` — Beginner-friendly  
+- `help wanted` — Needs contributors
+
+**Priority**
+- `priority: P0` — Highest urgency  
+- `priority: P1` — High  
+- `priority: P2` — Normal
+
+**Status**
+- `status: blocked` — Waiting on something  
+- `status: needs info` — More info required
+
+### Auto-labels
+
+- **By paths** (`.github/labeler.yml`, `actions/labeler@v5`):
+  - `docs` → `README.md`, `docs/**/*`
+  - `ci` → `.github/workflows/**/*`
+  - `test` → `tests/**/*`
+  - `chore` → `.editorconfig`, `.gitattributes`, `.gitignore`, `.pre-commit-config.yaml`, `pyproject.toml`, `.github/**` meta
+
+- **By PR title** (`PR Title Labeler` workflow):
+  - Prefix your PR title with one of:  
+    `feat:`, `fix:`, `docs:`, `chore:`, `ci:`, `refactor:`, `test:`, `perf:`  
+    → the matching label is applied automatically.
+
+### Usage
+
+- Add **one intent label** (`feat`/`fix`/…) when opening a PR.  
+- Add **priority** for planning, and **status** as needed.  
+- Title format follows Conventional Commits, e.g. `feat: add --output-dir flag`.
+
 ## License
 MIT — feel free to use and adapt.
 
