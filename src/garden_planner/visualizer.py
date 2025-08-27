@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import math
+import os
 import random
 from dataclasses import dataclass
 from datetime import datetime
@@ -689,8 +690,8 @@ def render_schematic(
         )
     plt.tight_layout()
     if save_path:
-        plt.savefig(save_path, dpi=200, bbox_inches="tight")
-    plt.show()
+        plt.savefig(out(save_path), dpi=200, bbox_inches="tight")
+    maybe_show()
 
 
 def render_perspective_grid_camera(
@@ -811,8 +812,8 @@ def render_perspective_grid_camera(
         )
     plt.tight_layout()
     if save_path:
-        plt.savefig(save_path, dpi=200, bbox_inches="tight")
-    plt.show()
+        plt.savefig(out(save_path), dpi=200, bbox_inches="tight")
+    maybe_show()
 
 
 def render_perspective_heights_camera(
@@ -899,8 +900,8 @@ def render_perspective_heights_camera(
         )
     plt.tight_layout()
     if save_path:
-        plt.savefig(save_path, dpi=200, bbox_inches="tight")
-    plt.show()
+        plt.savefig(out(save_path), dpi=200, bbox_inches="tight")
+    maybe_show()
 
 
 # ---------------------- CSV Export / Import ----------------------
@@ -979,11 +980,17 @@ def filter_clusters_by_month(
     return filtered
 
 
+# ---------------------- HELPERS ----------------------
+# Utility functions used across layout/render/CLI.
+# Keep these above the CLI section so everything can import them.
+
+
 # ---------------------- Unique suffix ----------------------
 def unique_suffix() -> str:
     return datetime.now().strftime("%Y%m%d_%H%M%S")
 
 
+# ---------------------- Interleaving ----------------------
 def _enforce_interleaving_strict(clusters, gap=0.01, max_passes=18):
     """
     No-op enforcement stub for strict interleaving.
@@ -998,6 +1005,41 @@ def _validate_interleaving_strict(clusters) -> int:
     Returns 0 to indicate no violations.
     """
     return 0
+
+
+# ----------- Global output directory (set from main) ------------
+
+_OUTPUT_DIR = "."
+
+
+def set_output_dir(path: str) -> None:
+    """Set the module-level output directory used by out()."""
+    global _OUTPUT_DIR
+    _OUTPUT_DIR = path
+
+
+def ensure_output_dir(path: str) -> None:
+    """Create the output directory if needed."""
+    os.makedirs(path, exist_ok=True)
+
+
+def out(name: str) -> str:
+    """Resolve a filename under the current output directory."""
+    return os.path.join(_OUTPUT_DIR, name)
+
+
+# ---------------------- Headless Mode Helper ----------------------
+
+
+def maybe_show():
+    # Only show figures if the backend is interactive (not Agg)
+    import matplotlib.pyplot as plt  # uses existing import cache
+
+    if not plt.get_backend().lower().endswith("agg"):
+        maybe_show()
+
+
+# ---------------------- END HELPERS ----------------------
 
 
 # ---------------------- CLI ----------------------
@@ -1023,6 +1065,12 @@ def main():
         type=int,
         default=18,
         help="Maximum passes for strict interleaving enforcement (CSV path only).",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        default=".",
+        help="Directory to write images and CSV files (default: current folder).",
     )
 
     # camera
@@ -1068,6 +1116,8 @@ def main():
     # output
     parser.add_argument("--prefix", type=str, default="camera_perspective_v6_5")
     args = parser.parse_args()
+    ensure_output_dir(args.output_dir)
+    set_output_dir(args.output_dir)
 
     # Theme & RNG
     theme = default_theme()
