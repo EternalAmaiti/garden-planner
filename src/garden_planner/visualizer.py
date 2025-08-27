@@ -30,7 +30,6 @@ import pandas as pd
 DEFAULT_BED_WIDTH = 3.0
 DEFAULT_BED_DEPTH = 2.5
 CELL_SIZE = 0.1
-DEFAULT_SEED = 42
 
 
 # ---------------------- Data models ----------------------
@@ -383,7 +382,10 @@ def make_non_overlapping_layout(
     max_iters: int = 800,
     step: float = 0.6,
     interleave_species: bool = False,
-):
+) -> dict[str, list[tuple[float, float, int]]]:
+    # DBG breadcrumb 1: show flag value passed to this function
+    print(f"[dbg] make_non_overlapping_layout(interleave_species={interleave_species})")
+
     """
     Relax cluster centers to resolve overlaps. Optionally encourage interleaving of species
     so same-species clusters are not adjacent along their line of centers.
@@ -394,11 +396,17 @@ def make_non_overlapping_layout(
             r = cluster_radius_m(theme.species_styles[sp].spacing, c)
             items.append({"sp": sp, "x": x, "y": y, "c": c, "r": r})
     n = len(items)
+
+    # DBG breadcrumb 2: show n and whether the interleave branch will trigger
+    print(f"[dbg] layout: n={n}, interleave_branch={(interleave_species and n > 2)}")
+
     if n == 0:
         return species_clusters
 
     # --- Interleaving enforcement: ensure a different species lies between same-species pairs ---
     if interleave_species and n > 2:
+        print("[dbg] entering interleave loop")
+        ...
 
         def seg_proj_and_dist(P, A, B):
             # Returns (t in [0,1] for projection on AB, perpendicular distance)
@@ -996,6 +1004,9 @@ def _enforce_interleaving_strict(clusters, gap=0.01, max_passes=18):
     No-op enforcement stub for strict interleaving.
     Returns clusters unchanged until a proper implementation is added.
     """
+    print(
+        f"[interleave:debug] enforce() called: type={type(clusters).__name__}, len={len(clusters) if hasattr(clusters,'__len__') else 'unknown'}, gap={gap}, passes={max_passes}"
+    )
     return clusters
 
 
@@ -1004,6 +1015,9 @@ def _validate_interleaving_strict(clusters) -> int:
     No-op validation stub for strict interleaving.
     Returns 0 to indicate no violations.
     """
+    print(
+        f"[interleave:debug] validate() called: type={type(clusters).__name__}, len={len(clusters) if hasattr(clusters,'__len__') else 'unknown'}"
+    )
     return 0
 
 
@@ -1039,13 +1053,26 @@ def maybe_show():
         maybe_show()
 
 
+# ---------------------- Interleaver debug ----------------------
+
+
+def _debug_interleave_info(clusters, limit: int = 3) -> None:
+    import itertools
+
+    T = type(clusters).__name__
+    n = len(clusters) if hasattr(clusters, "__len__") else "unknown"
+    print(f"[interleave:debug] type={T} len={n}")
+    it = clusters if isinstance(clusters, list | tuple) else []
+    for i, item in enumerate(itertools.islice(it, limit)):
+        print(f"[interleave:debug] item[{i}] type={type(item).__name__} repr={repr(item)[:120]}")
+
+
 # ---------------------- END HELPERS ----------------------
 
 
 # ---------------------- CLI ----------------------
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
     parser.add_argument("--cell", type=float, default=CELL_SIZE)
     parser.add_argument("--avg", type=int, default=5)
     parser.add_argument("--min-odd", type=int, default=3)
@@ -1071,6 +1098,17 @@ def main():
         type=str,
         default=".",
         help="Directory to write images and CSV files (default: current folder).",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="Seed for reproducible randomness (default: None = nondeterministic).",
+    )
+    parser.add_argument(
+        "--debug-interleave-info",
+        action="store_true",
+        help="Print cluster structure before interleaving (dev debug).",
     )
 
     # camera
@@ -1118,6 +1156,12 @@ def main():
     args = parser.parse_args()
     ensure_output_dir(args.output_dir)
     set_output_dir(args.output_dir)
+    print(f"[dbg] file={__file__}")
+    print(
+        f"[dbg] args.interleave_species={args.interleave_species} "
+        f"validate_strict={args.interleave_validate_strict} "
+        f"max_passes={args.interleave_max_passes} gap={getattr(args,'gap',None)}"
+    )
 
     # Theme & RNG
     theme = default_theme()
@@ -1158,7 +1202,14 @@ def main():
         )
 
         # --- Strict interleaving pass (nearest same-species pairs) ---
+        print(
+            f"[dbg] strict block: interleave_species={args.interleave_species} "
+            f"gap={args.gap} passes={args.interleave_max_passes}"
+        )
         if args.interleave_species:
+            if args.debug_interleave_info:
+                _debug_interleave_info(clusters)
+
             clusters = _enforce_interleaving_strict(
                 clusters, gap=args.gap, max_passes=args.interleave_max_passes
             )
