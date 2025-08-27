@@ -17,7 +17,7 @@ pandas = "^2.2.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"
-black = "^24.0.0"
+black = "^25.1.0"
 ruff = "^0.6.0"
 pre-commit = "^3.7.0"
 
