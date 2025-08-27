@@ -19,7 +19,7 @@ pandas = "^2.2.0"
 pytest = "^8.0.0"
 black = "^24.0.0"
 ruff = "^0.6.0"
-pre-commit = "^3.7.0"
+pre-commit = "^4.3.0"
 
 [tool.poetry.scripts]
 garden-planner = "garden_planner.visualizer:main"
