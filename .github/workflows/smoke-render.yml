@@ -1,0 +1,42 @@
+name: smoke-render
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Poetry
+        run: pipx install poetry
+
+      - name: Install deps (includes project)
+        run: poetry install --no-interaction
+
+      - name: Smoke render (headless)
+        env:
+          MPLBACKEND: Agg
+        run: |
+          poetry run garden-planner \
+            --seed 1234 \
+            --density 0.6 \
+            --interleave-species \
+            --interleave-max-passes 36 \
+            --halos \
+            --output-dir out-ci
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-artifacts
+          path: out-ci/**
+          retention-days: 7
