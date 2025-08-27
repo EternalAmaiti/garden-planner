@@ -30,7 +30,6 @@ import pandas as pd
 DEFAULT_BED_WIDTH = 3.0
 DEFAULT_BED_DEPTH = 2.5
 CELL_SIZE = 0.1
-DEFAULT_SEED = 42
 
 
 # ---------------------- Data models ----------------------
@@ -383,22 +382,38 @@ def make_non_overlapping_layout(
     max_iters: int = 800,
     step: float = 0.6,
     interleave_species: bool = False,
-):
+    interleave_passes: int = 18,
+    debug: bool = False,
+) -> dict[str, list[tuple[float, float, int]]]:
+    # DBG: flag value reaching this function
+    if debug:
+        print(f"[dbg] make_non_overlapping_layout(interleave_species={interleave_species})")
+    ...
+
     """
     Relax cluster centers to resolve overlaps. Optionally encourage interleaving of species
     so same-species clusters are not adjacent along their line of centers.
     """
-    items = []
+    # Build flat working list
+    items: list[dict] = []
     for sp, pts in species_clusters.items():
         for x, y, c in pts:
             r = cluster_radius_m(theme.species_styles[sp].spacing, c)
-            items.append({"sp": sp, "x": x, "y": y, "c": c, "r": r})
+            items.append({"sp": sp, "x": float(x), "y": float(y), "c": int(c), "r": float(r)})
+
     n = len(items)
     if n == 0:
         return species_clusters
 
-    # --- Interleaving enforcement: ensure a different species lies between same-species pairs ---
+    # DBG: whether we'll enter interleave branch
+    if debug:
+        print(f"[dbg] layout: n={n}, interleave_branch={bool(interleave_species and n > 2)}")
+    ...
+
+    # ---------------- Interleaving enforcement ----------------
     if interleave_species and n > 2:
+        if debug:
+            print("[dbg] entering interleave loop")
 
         def seg_proj_and_dist(P, A, B):
             # Returns (t in [0,1] for projection on AB, perpendicular distance)
@@ -417,19 +432,20 @@ def make_non_overlapping_layout(
             t, d = seg_proj_and_dist(circle_center, A, B)
             return d <= r + 1e-4 and 0.0 < t < 1.0  # strictly between
 
-        # Build quick arrays for centers/radii
+        # Quick arrays for centers/radii/species
         centers = [(obj["x"], obj["y"]) for obj in items]
         radii = [obj["r"] for obj in items]
         species = [obj["sp"] for obj in items]
-        # Iterate a few passes nudging the *closest different-species* circle onto the AB line segment
-        for _pass in range(18):
+
+        for _pass in range(interleave_passes):
             violations = 0
             for i in range(n):
                 for j in range(i + 1, n):
                     if species[i] != species[j]:
                         continue
                     Ai, Aj = centers[i], centers[j]
-                    # Already "blocked"?
+
+                    # Already "blocked" by a different species circle intersecting segment i–j?
                     blocked = False
                     for k in range(n):
                         if k == i or k == j:
@@ -441,8 +457,10 @@ def make_non_overlapping_layout(
                             break
                     if blocked:
                         continue
+
                     violations += 1
-                    # Find a candidate different species whose projection lies within segment and is closest
+
+                    # Prefer a k whose projection is inside segment and closest to it
                     best_k, best_t, best_d = None, None, 1e9
                     ax, ay = Ai
                     bx, by = Aj
@@ -454,8 +472,9 @@ def make_non_overlapping_layout(
                         t, d = seg_proj_and_dist(centers[k], Ai, Aj)
                         if 0.0 < t < 1.0 and d < best_d:
                             best_k, best_t, best_d = k, t, d
+
                     if best_k is None:
-                        # No candidate whose projection is inside; pick nearest different species to midpoint
+                        # No projection inside: pull nearest different species toward midpoint
                         mx, my = (ax + bx) / 2.0, (ay + by) / 2.0
                         best_k, best_d = None, 1e9
                         for k in range(n):
@@ -467,24 +486,23 @@ def make_non_overlapping_layout(
                                 best_k, best_d = k, d
                         if best_k is None:
                             continue
-                        # Nudge it toward the midpoint
                         cx, cy = centers[best_k]
                         vx, vy = mx - cx, my - cy
                         L = math.hypot(vx, vy) + 1e-9
                         step_k = min(0.06, 0.35 * L)
                         centers[best_k] = (cx + step_k * vx / L, cy + step_k * vy / L)
                     else:
-                        # Move that circle perpendicular toward the AB line until it intersects
+                        # Move perpendicular toward the AB line until it effectively intersects
                         cx, cy = centers[best_k]
                         if AB2 == 0:
                             continue
-                        # foot of perpendicular
-                        qx, qy = ax + best_t * ABx, ay + best_t * ABy
+                        qx, qy = ax + best_t * ABx, ay + best_t * ABy  # foot of perpendicular
                         nx, ny = cx - qx, cy - qy
                         dist = math.hypot(nx, ny) + 1e-9
                         need = max(0.0, dist - radii[best_k] + 1e-3)
                         move = min(0.06, 0.5 * need)
                         centers[best_k] = (cx - move * nx / dist, cy - move * ny / dist)
+
             # write centers back each pass
             for idx, (x, y) in enumerate(centers):
                 items[idx]["x"], items[idx]["y"] = x, y
@@ -495,6 +513,7 @@ def make_non_overlapping_layout(
                 obj["y"] = min(max(r, y), bed.depth_m - r)
             if violations == 0:
                 break
+
         # Short overlap relaxation to fix any new collisions
         for _it2 in range(120):
             max_overlap = 0.0
@@ -523,7 +542,7 @@ def make_non_overlapping_layout(
             if max_overlap < 1e-3:
                 break
 
-    # --- Overlap relaxation ---
+    # ---------------- Global overlap relaxation ----------------
     for _it in range(max_iters):
         max_overlap = 0.0
         for i in range(n):
@@ -552,7 +571,7 @@ def make_non_overlapping_layout(
         if max_overlap < 1e-3:
             break
 
-    out = {sp: [] for sp in species_clusters.keys()}
+    out: dict[str, list[tuple[float, float, int]]] = {sp: [] for sp in species_clusters.keys()}
     for obj in items:
         out[obj["sp"]].append((obj["x"], obj["y"], obj["c"]))
     return out
@@ -569,6 +588,9 @@ def autoscale_to_density(
     repack_gap: float = 0.02,
     max_iters: int = 800,
     step: float = 0.6,
+    interleave_species: bool = False,
+    interleave_passes: int = 18,
+    debug: bool = False,  # ← add
 ):
     """
     Adjust bed size uniformly so total halo area / bed area ~= density.
@@ -599,7 +621,9 @@ def autoscale_to_density(
         gap=repack_gap,
         max_iters=max_iters,
         step=step,
-        interleave_species=False,
+        interleave_species=interleave_species,
+        interleave_passes=interleave_passes,
+        debug=debug,  # ← pass it through
     )
     return s_clamped, new_bed, repacked
 
@@ -996,6 +1020,9 @@ def _enforce_interleaving_strict(clusters, gap=0.01, max_passes=18):
     No-op enforcement stub for strict interleaving.
     Returns clusters unchanged until a proper implementation is added.
     """
+    print(
+        f"[interleave:debug] enforce() called: type={type(clusters).__name__}, len={len(clusters) if hasattr(clusters,'__len__') else 'unknown'}, gap={gap}, passes={max_passes}"
+    )
     return clusters
 
 
@@ -1004,6 +1031,9 @@ def _validate_interleaving_strict(clusters) -> int:
     No-op validation stub for strict interleaving.
     Returns 0 to indicate no violations.
     """
+    print(
+        f"[interleave:debug] validate() called: type={type(clusters).__name__}, len={len(clusters) if hasattr(clusters,'__len__') else 'unknown'}"
+    )
     return 0
 
 
@@ -1039,13 +1069,26 @@ def maybe_show():
         maybe_show()
 
 
+# ---------------------- Interleaver debug ----------------------
+
+
+def _debug_interleave_info(clusters, limit: int = 3) -> None:
+    import itertools
+
+    T = type(clusters).__name__
+    n = len(clusters) if hasattr(clusters, "__len__") else "unknown"
+    print(f"[interleave:debug] type={T} len={n}")
+    it = clusters if isinstance(clusters, list | tuple) else []
+    for i, item in enumerate(itertools.islice(it, limit)):
+        print(f"[interleave:debug] item[{i}] type={type(item).__name__} repr={repr(item)[:120]}")
+
+
 # ---------------------- END HELPERS ----------------------
 
 
 # ---------------------- CLI ----------------------
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
     parser.add_argument("--cell", type=float, default=CELL_SIZE)
     parser.add_argument("--avg", type=int, default=5)
     parser.add_argument("--min-odd", type=int, default=3)
@@ -1071,6 +1114,17 @@ def main():
         type=str,
         default=".",
         help="Directory to write images and CSV files (default: current folder).",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="Seed for reproducible randomness (default: None = nondeterministic).",
+    )
+    parser.add_argument(
+        "--debug-interleave-info",
+        action="store_true",
+        help="Print cluster structure before interleaving (dev debug).",
     )
 
     # camera
@@ -1118,6 +1172,12 @@ def main():
     args = parser.parse_args()
     ensure_output_dir(args.output_dir)
     set_output_dir(args.output_dir)
+    print(f"[dbg] file={__file__}")
+    print(
+        f"[dbg] args.interleave_species={args.interleave_species} "
+        f"validate_strict={args.interleave_validate_strict} "
+        f"max_passes={args.interleave_max_passes} gap={getattr(args,'gap',None)}"
+    )
 
     # Theme & RNG
     theme = default_theme()
@@ -1158,7 +1218,14 @@ def main():
         )
 
         # --- Strict interleaving pass (nearest same-species pairs) ---
+        print(
+            f"[dbg] strict block: interleave_species={args.interleave_species} "
+            f"gap={args.gap} passes={args.interleave_max_passes}"
+        )
         if args.interleave_species:
+            if args.debug_interleave_info:
+                _debug_interleave_info(clusters)
+
             clusters = _enforce_interleaving_strict(
                 clusters, gap=args.gap, max_passes=args.interleave_max_passes
             )
@@ -1218,6 +1285,8 @@ def main():
             max_iters=800,
             step=0.6,
             interleave_species=args.interleave_species,
+            interleave_passes=args.interleave_max_passes,
+            debug=args.debug_interleave_info,
         )
 
         if args.density is not None:
@@ -1231,6 +1300,11 @@ def main():
                 repack_gap=args.gap,
                 max_iters=800,
                 step=0.6,
+                interleave_species=args.interleave_species,
+                interleave_passes=args.interleave_max_passes,
+                # if autoscale_to_density calls make_non_overlapping_layout internally,
+                # ensure it forwards debug=args.debug_interleave_info too.
+                debug=args.debug_interleave_info,
             )
             print(
                 f"[density] target={args.density:.2f}  scale={s:.3f}  new bed = {bed.width_m:.2f}×{bed.depth_m:.2f} m"
