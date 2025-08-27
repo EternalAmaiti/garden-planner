@@ -10,3 +10,7 @@ build/
 *.png
 *.csv
 *.svg
+
+# local backups / outputs
+*.bak
+/out*/
