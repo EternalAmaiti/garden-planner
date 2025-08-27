@@ -61,3 +61,4 @@ tests/                             # pytest tests
 
 ## License
 MIT — feel free to use and adapt.
+
