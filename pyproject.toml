@@ -1,0 +1,49 @@
+[tool.poetry]
+name = "garden-planner"
+version = "0.1.0"
+description = "Garden bed visualizer/planner with camera-perspective rendering and CSV flows."
+authors = ["You <you@example.com>"]
+license = "MIT"
+readme = "README.md"
+packages = [{ include = "garden_planner", from = "src" }]
+homepage = "https://github.com/EternalAmaiti/garden-planner"
+repository = "https://github.com/EternalAmaiti/garden-planner"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+matplotlib = "^3.9.0"
+numpy = "^2.0.0"
+pandas = "^2.2.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.0"
+black = "^24.0.0"
+ruff = "^0.6.0"
+pre-commit = "^3.7.0"
+
+[tool.poetry.scripts]
+garden-planner = "garden_planner.visualizer:main"
+
+[tool.ruff]
+# Keep line length compatible with Black
+line-length = 100
+target-version = "py312"
+select = ["E","F","I","UP","B"]
+ignore = ["E501"]  # line length handled by Black
+src = ["src"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["garden_planner"]
+combine-as-imports = true
+
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+
+[build-system]
+requires = ["poetry-core>=1.8.0"]
+build-backend = "poetry.core.masonry.api"
