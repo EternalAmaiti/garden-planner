@@ -1,22 +1,30 @@
-# Labels applied by paths changed in a PR
+# Labels applied by paths changed in a PR (actions/labeler@v5)
 
 docs:
-  - README.md
-  - docs/**/*
+  - changed-files:
+      - any-glob-to-any-file:
+          - README.md
+          - docs/**/*
 
 ci:
-  - .github/workflows/**/*
+  - changed-files:
+      - any-glob-to-any-file:
+          - .github/workflows/**/*
 
 test:
-  - tests/**/*
+  - changed-files:
+      - any-glob-to-any-file:
+          - tests/**/*
 
 chore:
-  - .editorconfig
-  - .gitattributes
-  - .gitignore
-  - .pre-commit-config.yaml
-  - pyproject.toml
-  - .github/ISSUE_TEMPLATE/**/*
-  - .github/PULL_REQUEST_TEMPLATE/**/*
-  - .github/dependabot.yml
-  - .github/labeler.yml
+  - changed-files:
+      - any-glob-to-any-file:
+          - .editorconfig
+          - .gitattributes
+          - .gitignore
+          - .pre-commit-config.yaml
+          - pyproject.toml
+          - .github/ISSUE_TEMPLATE/**/*
+          - .github/PULL_REQUEST_TEMPLATE/**/*
+          - .github/dependabot.yml
+          - .github/labeler.yml
