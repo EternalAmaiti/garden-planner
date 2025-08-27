@@ -2,6 +2,8 @@
 
 Camera-perspective garden bed visualizer with CSV import/export and bloom-time filtering.
 
+![CI](https://github.com/EternalAmaiti/garden-planner/actions/workflows/ci.yml/badge.svg)
+
 ## Quickstart (Poetry)
 ```bash
 # 1) Install Poetry (if needed): https://python-poetry.org/docs/#installation
